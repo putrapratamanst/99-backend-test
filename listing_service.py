@@ -11,7 +11,6 @@ class App(tornado.web.Application):
     def __init__(self, handlers, **kwargs):
         super().__init__(handlers, **kwargs)
 
-        # Initialising db connection
         self.db = sqlite3.connect("listings.db")
         self.db.row_factory = sqlite3.Row
         self.init_db()
@@ -19,7 +18,6 @@ class App(tornado.web.Application):
     def init_db(self):
         cursor = self.db.cursor()
 
-        # Create table
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS 'listings' ("
             + "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,"
@@ -38,11 +36,9 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_status(status_code)
         self.write(json.dumps(obj))
 
-# /listings
 class ListingsHandler(BaseHandler):
     @tornado.gen.coroutine
     def get(self):
-        # Parsing pagination params
         page_num = self.get_argument("page_num", 1)
         page_size = self.get_argument("page_size", 10)
         try:
@@ -59,7 +55,6 @@ class ListingsHandler(BaseHandler):
             self.write_json({"result": False, "errors": "invalid page_size"}, status_code=400)
             return
 
-        # Parsing user_id param
         user_id = self.get_argument("user_id", None)
         if user_id is not None:
             try:
@@ -68,17 +63,13 @@ class ListingsHandler(BaseHandler):
                 self.write_json({"result": False, "errors": "invalid user_id"}, status_code=400)
                 return
 
-        # Building select statement
         select_stmt = "SELECT * FROM listings"
-        # Adding user_id filter clause if param is specified
         if user_id is not None:
             select_stmt += " WHERE user_id=?"
-        # Order by and pagination
         limit = page_size
         offset = (page_num - 1) * page_size
         select_stmt += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
 
-        # Fetching listings from db
         if user_id is not None:
             args = (user_id, limit, offset)
         else:
@@ -98,24 +89,20 @@ class ListingsHandler(BaseHandler):
 
     @tornado.gen.coroutine
     def post(self):
-        # Collecting required params
         user_id = self.get_argument("user_id")
         listing_type = self.get_argument("listing_type")
         price = self.get_argument("price")
 
-        # Validating inputs
         errors = []
         user_id_val = self._validate_user_id(user_id, errors)
         listing_type_val = self._validate_listing_type(listing_type, errors)
         price_val = self._validate_price(price, errors)
-        time_now = int(time.time() * 1e6) # Converting current time to microseconds
+        time_now = int(time.time() * 1e6)
 
-        # End if we have any validation errors
         if len(errors) > 0:
             self.write_json({"result": False, "errors": errors}, status_code=400)
             return
 
-        # Proceed to store the listing in our db
         cursor = self.application.db.cursor()
         cursor.execute(
             "INSERT INTO 'listings' "
@@ -125,7 +112,6 @@ class ListingsHandler(BaseHandler):
         )
         self.application.db.commit()
 
-        # Error out if we fail to retrieve the newly created listing
         if cursor.lastrowid is None:
             self.write_json({"result": False, "errors": ["Error while adding listing to db"]}, status_code=500)
             return
@@ -158,7 +144,6 @@ class ListingsHandler(BaseHandler):
             return listing_type
 
     def _validate_price(self, price, errors):
-        # Convert string to int
         try:
             price = int(price)
         except Exception as e:
@@ -172,7 +157,6 @@ class ListingsHandler(BaseHandler):
         else:
             return price
 
-# /listings/ping
 class PingHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self):
@@ -185,23 +169,15 @@ def make_app(options):
     ], debug=options.debug)
 
 if __name__ == "__main__":
-    # Define settings/options for the web app
-    # Specify the port number to start the web app on (default value is port 6000)
     tornado.options.define("port", default=6000)
-    # Specify whether the app should run in debug mode
-    # Debug mode restarts the app automatically on file changes
     tornado.options.define("debug", default=True)
 
-    # Read settings/options from command line
     tornado.options.parse_command_line()
 
-    # Access the settings defined
     options = tornado.options.options
 
-    # Create web app
     app = make_app(options)
     app.listen(options.port)
     logging.info("Starting listing service. PORT: {}, DEBUG: {}".format(options.port, options.debug))
 
-    # Start event loop
     tornado.ioloop.IOLoop.instance().start()

@@ -246,10 +246,60 @@ Response:
 }
 ```
 
-## Setup
-The listing service has been built already. You need to build the remaining two components: the user service and the public API layer. 
+## Quick Start (Recommended)
 
-The first priority would be to get the listing service up and running! You will need Python 3 to run the example.
+For the fastest setup, use the automated build script that handles all services:
+
+### Prerequisites
+- Go 1.21+ installed
+- Python 3.7+ installed 
+- pip package manager
+
+### Build and Run All Services
+
+**Option 1: Using Batch Script (Windows)**
+```bash
+# Build all services (Go + Python dependencies)
+.\run.bat generate-all
+
+# Run all services simultaneously
+.\run.bat run-all
+```
+
+**Option 2: Using Makefile (if make is installed)**
+```bash
+# Build all services
+make generate-all
+
+# Run all services
+make run-all
+```
+
+This will automatically:
+1. Install Go dependencies
+2. Install Python dependencies (tornado)
+3. Build user service (Go) → `bin/user-service.exe`
+4. Build public API (Go) → `bin/public-api.exe`
+5. Run listing service (Python) on port 6000
+6. Run user service (Go) on port 8001  
+7. Run public API (Go) on port 8000
+
+### Service Endpoints
+After running all services, you can access:
+- **Public API**: http://localhost:8000/public-api/listings
+- **User Service**: http://localhost:8001/users
+- **Listing Service**: http://localhost:6000/listings/ping
+
+### Health Checks
+- Public API: http://localhost:8000/health
+- User Service: http://localhost:8001/health
+- Listing Service: http://localhost:6000/listings/ping
+
+---
+
+## Manual Setup (Alternative)
+
+If you prefer to set up each service manually:
 
 ### Install pip
 pip is a handy tool to install libraries/dependencies for your python programs. pip should already come installed on your system. Head over to https://pip.pypa.io/en/stable/installing/ for steps to install pip if it's not available.
@@ -295,9 +345,34 @@ The following settings that can be configured via command-line arguments when st
 Time to add some data into the listing service!
 
 ```bash
-curl localhost:8888/listings -XPOST \
+curl localhost:6000/listings -XPOST \
     -d user_id=1 \
     -d listing_type=rent \
     -d price=4500
 ```
+
+## Testing the Complete System
+
+After running all services with `.\run.bat run-all`, you can test the full system:
+
+### 1. Create a user via Public API:
+```bash
+curl -X POST http://localhost:8000/public-api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe"}'
+```
+
+### 2. Create a listing via Public API:
+```bash
+curl -X POST http://localhost:8000/public-api/listings \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": 1, "listing_type": "rent", "price": 5000}'
+```
+
+### 3. Get all listings via Public API:
+```bash
+curl "http://localhost:8000/public-api/listings?page_num=1&page_size=10"
+```
+
+This will return listings with embedded user information, demonstrating the microservice communication between Public API → User Service and Public API → Listing Service.
 

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: user-service
+    ports:
+      - "8001:8001"
+    environment:
+      DB_PATH: /app/data/database.db
+      USER_SERVICE_PORT: 8001
+    volumes:
+      - user_data:/app/data
+    restart: unless-stopped
+
+  # Listing Service
+  listing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: listing-service
+    ports:
+      - "6000:6000"
+    environment:
+      DB_PATH: /app/data/database.db
+      LISTING_SERVICE_PORT: 6000
+    volumes:
+      - listing_data:/app/data
+    restart: unless-stopped
+
+  # Public API
+  public-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: public-api
+    ports:
+      - "8000:8000"
+    environment:
+      PUBLIC_API_PORT: 8000
+      USER_SERVICE_URL: http://user-service:8001
+      LISTING_SERVICE_URL: http://listing-service:6000
+    depends_on:
+      - user-service
+      - listing-service
+    restart: unless-stopped
+
+volumes:
+  user_data:
+  listing_data:
